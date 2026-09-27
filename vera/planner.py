@@ -16,6 +16,7 @@ TICK_BUDGET = float(os.environ.get("TICK_BUDGET_SECONDS", "11"))
 MAX_ACTIONS = 20
 PER_MERCHANT = int(os.environ.get("MAX_PER_MERCHANT_PER_TICK", "2"))
 POOL = ThreadPoolExecutor(max_workers=int(os.environ.get("LLM_CONCURRENCY", "6")))
+PREWARM_POOL = ThreadPoolExecutor(max_workers=3)   # separate so background waits never starve tick work
 
 
 def _short(mid: str) -> str:
@@ -146,4 +147,4 @@ def prewarm(trigger_id: str, delivered_at: str | None):
     if not mer:
         return
     now = parse_dt(delivered_at) or utcnow()
-    POOL.submit(compose_ctx, Ctx(cat, mer, trg, cus, now), True, 12.0, STORE.versions_key(trg))
+    PREWARM_POOL.submit(compose_ctx, Ctx(cat, mer, trg, cus, now), True, 25.0, STORE.versions_key(trg))

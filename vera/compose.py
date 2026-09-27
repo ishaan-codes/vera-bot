@@ -71,8 +71,34 @@ def cache_key(c: Ctx, versions_key: str) -> str:
     return f"{versions_key}|{c.now.strftime('%Y-%m-%d')}"
 
 
+_INFLIGHT: dict[str, threading.Event] = {}
+
+
 def compose_ctx(c: Ctx, use_llm: bool = True, timeout: float = 9.0, versions_key: str | None = None) -> Draft:
     key = cache_key(c, versions_key) if versions_key else None
+    if key:
+        # if the same message is already being composed (prewarm vs tick), wait for it instead of a 2nd LLM call
+        with _CACHE_LOCK:
+            ev = _INFLIGHT.get(key)
+            mine = ev is None
+            if mine:
+                _INFLIGHT[key] = threading.Event()
+        if not mine:
+            ev.wait(timeout)
+            with _CACHE_LOCK:
+                hit = _CACHE.get(key)
+            if hit is not None:
+                return copy.deepcopy(hit)
+            return build_draft(c)
+        try:
+            return _compose_ctx(c, use_llm, timeout, key)
+        finally:
+            with _CACHE_LOCK:
+                _INFLIGHT.pop(key).set()
+    return _compose_ctx(c, use_llm, timeout, None)
+
+
+def _compose_ctx(c: Ctx, use_llm: bool, timeout: float, key: str | None) -> Draft:
     if key:
         with _CACHE_LOCK:
             hit = _CACHE.get(key)

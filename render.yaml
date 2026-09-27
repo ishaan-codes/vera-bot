@@ -14,6 +14,8 @@ services:
         sync: false          # set the value in the Render dashboard, never in git
       - key: GEMINI_MODEL
         value: "gemini-2.5-flash,gemini-flash-latest,gemini-2.0-flash"
+      - key: LLM_RPM
+        value: "12"          # free-tier safe; set 200+ if billing is enabled on the Gemini key
       - key: TICK_BUDGET_SECONDS
         value: "11"
       - key: ACCESS_LOG
